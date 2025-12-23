@@ -1,5 +1,5 @@
 ---
-- name: "Ubuntu custom - GNOME + ZSH + X11 + Flameshot + Dark mode + delayed reboot"
+- name: "Ubuntu custom - GNOME + ZSH + X11 + Dark mode + Flameshot + Docker + Exegold + tmux + delayed reboot"
   hosts: localhost
   become: false
   gather_facts: true
@@ -8,6 +8,7 @@
     user_home: "{{ ansible_env.HOME }}"
     zshrc_path: "{{ user_home }}/.zshrc"
     omz_dir: "{{ user_home }}/.oh-my-zsh"
+    exegold_dir: "{{ user_home }}/Exegold"
 
   tasks:
     # ======================
@@ -37,16 +38,14 @@
     # ======================
     # GNOME – Dark Mode
     # ======================
-    - name: "Activer le dark mode GNOME (color-scheme)"
-      ansible.builtin.command: >
-        gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
+    - name: "Activer le dark mode GNOME"
+      ansible.builtin.command: gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
       environment:
         DBUS_SESSION_BUS_ADDRESS: "{{ dbus_addr }}"
       failed_when: false
 
-    - name: "Forcer thème GTK sombre (fallback)"
-      ansible.builtin.command: >
-        gsettings set org.gnome.desktop.interface gtk-theme 'Yaru-dark'
+    - name: "Forcer thème GTK sombre"
+      ansible.builtin.command: gsettings set org.gnome.desktop.interface gtk-theme 'Yaru-dark'
       environment:
         DBUS_SESSION_BUS_ADDRESS: "{{ dbus_addr }}"
       failed_when: false
@@ -67,21 +66,70 @@
       failed_when: false
 
     # ======================
-    # ZSH / Oh My Zsh
+    # APT – Google Chrome + upgrade + paquets
     # ======================
-    - name: "Installer dépendances shell"
+    - name: "Ajouter clé Google Chrome"
+      become: true
+      ansible.builtin.get_url:
+        url: https://dl.google.com/linux/linux_signing_key.pub
+        dest: /etc/apt/trusted.gpg.d/google.asc
+        mode: "0644"
+
+    - name: "Ajouter dépôt Google Chrome"
+      become: true
+      ansible.builtin.apt_repository:
+        repo: "deb [arch=amd64] https://dl.google.com/linux/chrome/deb/ stable main"
+        filename: google-chrome
+        update_cache: true
+
+    - name: "Full upgrade système"
+      become: true
+      ansible.builtin.apt:
+        upgrade: full
+        update_cache: true
+
+    - name: "Installer paquets système (tmux inclus)"
       become: true
       ansible.builtin.apt:
         name:
-          - zsh
-          - git
+          - tar
+          - bzip2
+          - ansible
+          - libreoffice
+          - openfortivpn
+          - obs-studio
+          - python3-pip
+          - python3.12-venv
           - curl
-          - tmux
+          - git
+          - zsh
           - fzf
+          - tmux
+          - flameshot
+          - google-chrome-stable
         state: present
         update_cache: true
 
-    - name: "Mettre zsh comme shell par défaut"
+    # ======================
+    # Docker
+    # ======================
+    - name: "Installer Docker (get.docker.com)"
+      become: true
+      ansible.builtin.shell: curl -fsSL https://get.docker.com/ | sh
+      args:
+        executable: /bin/bash
+
+    - name: "Ajouter l'utilisateur au groupe docker"
+      become: true
+      ansible.builtin.user:
+        name: "{{ ansible_user_id }}"
+        groups: docker
+        append: true
+
+    # ======================
+    # ZSH / Oh My Zsh
+    # ======================
+    - name: "Définir zsh comme shell par défaut"
       become: true
       ansible.builtin.user:
         name: "{{ ansible_user_id }}"
@@ -92,7 +140,7 @@
         path: "{{ omz_dir }}"
       register: omz_stat
 
-    - name: "Installer Oh My Zsh (non interactif)"
+    - name: "Installer Oh My Zsh"
       ansible.builtin.shell: |
         RUNZSH=no CHSH=no KEEP_ZSHRC=yes \
         sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
@@ -108,7 +156,7 @@
         create: true
 
     # ======================
-    # Plugins Oh My Zsh
+    # Oh My Zsh – Plugins
     # ======================
     - name: "Installer plugins ZSH"
       ansible.builtin.git:
@@ -139,15 +187,8 @@
         create: true
 
     # ======================
-    # Flameshot + Print Screen
+    # Flameshot – Print Screen
     # ======================
-    - name: "Installer Flameshot"
-      become: true
-      ansible.builtin.apt:
-        name: flameshot
-        state: present
-        update_cache: true
-
     - name: "Désactiver screenshot GNOME natif"
       ansible.builtin.command: gsettings set org.gnome.shell.keybindings show-screenshot-ui "[]"
       environment:
@@ -158,15 +199,12 @@
       ansible.builtin.shell: |
         BASE="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings"
         PATHF="$BASE/flameshot/"
-
         current=$(gsettings get org.gnome.settings-daemon.plugins.media-keys custom-keybindings | sed 's/@as //')
-
         if [ "$current" = "[]" ]; then
           new="['$PATHF']"
         else
           echo "$current" | grep -q "$PATHF" && new="$current" || new="$(echo "$current" | sed "s/]$/, '$PATHF']/")"
         fi
-
         gsettings set org.gnome.settings-daemon.plugins.media-keys custom-keybindings "$new"
         gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:$PATHF name 'Flameshot'
         gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:$PATHF command 'flameshot gui'
@@ -177,13 +215,35 @@
         DBUS_SESSION_BUS_ADDRESS: "{{ dbus_addr }}"
 
     # ======================
-    # Attente + Reboot final
+    # Exegold
+    # ======================
+    - name: "Cloner Exegold"
+      ansible.builtin.git:
+        repo: https://github.com/fsoc106/Exegold
+        dest: "{{ exegold_dir }}"
+        update: true
+
+    - name: "Installer requirements Exegold"
+      ansible.builtin.command: python3 -m pip install --break-system-packages -r requirements.txt
+      args:
+        chdir: "{{ exegold_dir }}"
+
+    - name: "Créer symlink exegol"
+      become: true
+      ansible.builtin.file:
+        src: "{{ exegold_dir }}/exegol.py"
+        dest: /usr/local/bin/exegol
+        state: link
+        force: true
+
+    # ======================
+    # Attente + Reboot
     # ======================
     - name: "Attendre 10 secondes avant reboot"
       ansible.builtin.pause:
         seconds: 10
 
-    - name: "Reboot automatique après déploiement"
+    - name: "Reboot automatique"
       become: true
       ansible.builtin.command: systemctl reboot
       async: 1
