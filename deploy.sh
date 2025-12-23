@@ -8,7 +8,7 @@ curl -fsSL "https://get.docker.com/" | sh
 sudo usermod -aG docker $(id -u -n)
 
 # "reload" the user groups with the newly added docker group
-newgrp docker
+newgrp docker || exit
 git clone https://github.com/fsoc106/Exegold /home/user/Exegold
 cd /home/user/Exegold
 python3 -m venv --system-site-packages ./venv
