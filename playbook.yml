@@ -191,6 +191,11 @@
           - bzip2
           - ansible
           - libreoffice
+          - libreoffice-l10n-fr
+          - libreoffice-help-fr
+          - hunspell-fr
+          - hyphen-fr
+          - mythes-fr
           - openfortivpn
           - obs-studio
           - python3-pip
