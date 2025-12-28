@@ -178,10 +178,11 @@
 
     - name: "Ajouter dépôt Mullvad VPN"
       become: true
-      ansible.builtin.apt_repository:
-        repo: "deb [signed-by=/usr/share/keyrings/mullvad-keyring.asc arch={{ ansible_architecture }}] https://repository.mullvad.net/deb/stable stable main"
-        filename: mullvad
-        update_cache: true
+      ansible.builtin.shell: |
+        echo "deb [signed-by=/usr/share/keyrings/mullvad-keyring.asc arch=$(dpkg --print-architecture)] https://repository.mullvad.net/deb/stable stable main" | tee /etc/apt/sources.list.d/mullvad.list
+      args:
+        executable: /bin/bash
+        creates: /etc/apt/sources.list.d/mullvad.list
       tags: [apt, mullvad]
 
     - name: "Ajouter dépôt VirtualBox (trusted)"
@@ -198,6 +199,12 @@
         upgrade: full
         update_cache: true
       tags: [apt, upgrade]
+
+    - name: "Mettre à jour le cache APT pour Mullvad"
+      become: true
+      ansible.builtin.apt:
+        update_cache: true
+      tags: [apt, mullvad]
 
     - name: "Installer paquets système (incluant VirtualBox 7.2)"
       become: true
