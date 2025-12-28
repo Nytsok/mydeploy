@@ -230,6 +230,7 @@
           - tmux
           - flameshot
           - cherrytree
+          - rpi-imager
           - google-chrome-stable
           - mullvad-vpn
           - virtualbox-7.2
@@ -287,6 +288,29 @@
         path: /tmp/veracrypt.deb
         state: absent
       tags: [veracrypt]
+
+    # ======================
+    # Balena Etcher
+    # ======================
+    - name: "Télécharger Balena Etcher .deb"
+      ansible.builtin.get_url:
+        url: https://github.com/balena-io/etcher/releases/download/v2.1.4/balena-etcher_2.1.4_amd64.deb
+        dest: /tmp/balena-etcher.deb
+        mode: "0644"
+      tags: [etcher]
+
+    - name: "Installer Balena Etcher"
+      become: true
+      ansible.builtin.apt:
+        deb: /tmp/balena-etcher.deb
+        state: present
+      tags: [etcher]
+
+    - name: "Nettoyer le fichier .deb Balena Etcher"
+      ansible.builtin.file:
+        path: /tmp/balena-etcher.deb
+        state: absent
+      tags: [etcher]
 
     # ======================
     # ZSH / Oh My Zsh
