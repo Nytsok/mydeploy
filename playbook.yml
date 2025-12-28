@@ -168,6 +168,22 @@
         update_cache: true
       tags: [apt, chrome]
 
+    - name: "Ajouter clé Mullvad VPN"
+      become: true
+      ansible.builtin.get_url:
+        url: https://repository.mullvad.net/deb/mullvad-keyring.asc
+        dest: /usr/share/keyrings/mullvad-keyring.asc
+        mode: "0644"
+      tags: [apt, mullvad]
+
+    - name: "Ajouter dépôt Mullvad VPN"
+      become: true
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by=/usr/share/keyrings/mullvad-keyring.asc arch={{ ansible_architecture }}] https://repository.mullvad.net/deb/stable stable main"
+        filename: mullvad
+        update_cache: true
+      tags: [apt, mullvad]
+
     - name: "Ajouter dépôt VirtualBox (trusted)"
       become: true
       ansible.builtin.apt_repository:
@@ -207,6 +223,7 @@
           - tmux
           - flameshot
           - google-chrome-stable
+          - mullvad-vpn
           - virtualbox-7.2
         state: present
         update_cache: true
