@@ -266,6 +266,19 @@
       notify: reboot_system
       tags: [docker]
 
+    - name: "Configurer Docker pour désactiver le bridge docker0"
+      become: true
+      ansible.builtin.copy:
+        dest: /etc/docker/daemon.json
+        content: |
+          {
+            "bridge": "none",
+            "iptables": false
+          }
+        mode: "0644"
+      notify: reboot_system
+      tags: [docker]
+
     # ======================
     # VeraCrypt
     # ======================
@@ -442,6 +455,30 @@
           #!/bin/bash
           {{ exegold_venv }}/bin/python {{ exegold_dir }}/exegol.py "$@"
       tags: [exegold]
+
+    # ======================
+    # Docker – Nettoyage interface docker0
+    # ======================
+    - name: "Arrêter le service Docker"
+      become: true
+      ansible.builtin.systemd:
+        name: docker
+        state: stopped
+      tags: [docker, cleanup]
+
+    - name: "Supprimer l'interface docker0 si elle existe"
+      become: true
+      ansible.builtin.command: ip link delete docker0
+      failed_when: false
+      tags: [docker, cleanup]
+
+    - name: "Redémarrer le service Docker"
+      become: true
+      ansible.builtin.systemd:
+        name: docker
+        state: started
+        daemon_reload: true
+      tags: [docker, cleanup]
 
     # ======================
     # Attente + Reboot
